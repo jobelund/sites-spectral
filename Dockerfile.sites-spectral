@@ -1,0 +1,75 @@
+# docker build -t sites-spectral-docker -f Dockerfile.sites-spectral .
+# docker run -d --name sites-spectral-docker -p 8501:8501 -v  :/home/sites/ sites-spectral-docker:lastest streamlit run /home/sites/spectral/app.py
+
+ARG USER_ID
+ARG GROUP_ID=1000
+
+FROM python:3.10-slim
+
+ENV TZ 'Europe/Stockholm'
+# Set timezone and locale
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+# Set the PYTHONPATH environment variable
+ENV PYTHONPATH=/home/sites/spectral
+
+
+RUN echo $TZ > /etc/timezone && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    locales \
+    tzdata && \
+    rm /etc/localtime && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    software-properties-common \
+    git \
+    ffmpeg libsm6 libxext6 \
+    libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
+    libxvidcore-dev libx264-dev \
+    python3-pip libgdal-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade pip
+
+# Creating a non-root user and ensuring the same privileges as the host user
+RUN groupadd -g 1000 sitesgroup && \
+    useradd -u 1000 -g 1000 -ms /bin/bash sites && \
+    echo "sites:sitesgroup" | chpasswd && \
+    adduser sites sudo
+
+# Update C env vars so compiler can find gdal
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
+
+# GDAL environment variables
+ENV GDAL_DATA=/usr/share/gdal
+ENV GDAL_DRIVER_PATH=/usr/lib/gdalplugins
+
+# Copy the requirements file to the working directory
+COPY requirements.txt .
+
+# Install the dependencies listed
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose the default Streamlit port
+EXPOSE 8501
+
+USER sites
+# Set the working directory to /home/user
+WORKDIR /home/sites/
+
+
+# Set the container command to start the app
+#CMD ["streamlit", "run", "/home/sites/spectral/app.py"]
+CMD ["/bin/sh"]
+
+
+
