@@ -9,6 +9,8 @@ survey_data/
 *Zone.Identifier
 pgdata/
 geodata/
+*.code-workspace
+
 # Repo-specific GitIgnore ----------------------------------------------------------------------------------------------
 *.jpg
 *.jpeg
